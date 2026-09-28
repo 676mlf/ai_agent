@@ -1,0 +1,17 @@
+# -*- coding: utf-8 -*-
+# 电商客服Demo配置文件
+
+recipe: default.v1
+language: zh
+
+# Pipeline配置
+pipeline:
+  - name: LLMCommandGenerator
+    llm: default  # 引用endpoints.yml中的模型配置
+
+# 策略配置
+policies:
+  - name: FlowPolicy
+  - name: EnterpriseSearchPolicy
+    llm: default
+    vector_store: addons.information_retrieval.GraphRAG

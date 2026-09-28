@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:;">
+    <title>Atguigu AI - Inspect</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: #1a1a2e; 
+            color: #eee;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .container { 
+            display: grid; 
+            grid-template-columns: 320px 1fr 360px; 
+            gap: 12px; 
+            height: 100vh; 
+            padding: 12px; 
+        }
+        .panel { 
+            background: #16213e; 
+            border-radius: 8px; 
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .panel-header { 
+            padding: 12px 16px; 
+            border-bottom: 1px solid #0f3460;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .panel-header h2 { 
+            font-size: 14px; 
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .panel-content { 
+            flex: 1; 
+            overflow-y: auto; 
+            padding: 12px;
+        }
+        /* 左侧面板 */
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .left-panel .panel {
+            flex: 1;
+            min-height: 0;
+        }
+        /* Tabs */
+        .tabs { display: flex; gap: 4px; }
+        .tab { 
+            padding: 6px 12px; 
+            background: transparent; 
+            border: none; 
+            color: #64748b; 
+            cursor: pointer; 
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .tab.active { background: #0f3460; color: #e94560; }
+        .tab:hover:not(.active) { background: #1e3a5f; }
+        .tab-content { display: none; height: 100%; }
+        .tab-content.active { display: block; }
+        /* 表格 */
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th, td { 
+            padding: 8px 10px; 
+            text-align: left; 
+            border-bottom: 1px solid #0f3460; 
+        }
+        th { color: #64748b; font-weight: 500; }
+        td { color: #cbd5e1; }
+        tr:hover td { background: #1e3a5f; }
+        .flow-row { cursor: pointer; }
+        .flow-row.active td { background: #0f3460; color: #e94560; }
+        /* Flow 图 */
+        .flow-panel { background: #fff; }
+        .flow-panel .panel-header { background: #16213e; }
+        .flow-panel .panel-content { background: #fff; padding: 20px; }
+        .mermaid { width: 100%; }
+        .no-flow { 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100%; 
+            color: #64748b;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .no-flow svg { width: 48px; height: 48px; opacity: 0.5; }
+        .pattern-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        .pattern-info strong { font-size: 16px; }
+        .pattern-info p { margin: 8px 0 0; font-size: 13px; opacity: 0.9; }
+        /* 聊天 */
+        #chat-box { 
+            flex: 1; 
+            overflow-y: auto; 
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .message { 
+            padding: 10px 14px; 
+            border-radius: 12px; 
+            max-width: 85%;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        .user { 
+            background: #e94560; 
+            color: white; 
+            margin-left: auto; 
+            border-bottom-right-radius: 4px;
+        }
+        .bot { 
+            background: #0f3460; 
+            color: #e2e8f0;
+            border-bottom-left-radius: 4px;
+        }
+        /* 消息按钮 */
+        .message-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .message-btn {
+            padding: 8px 16px;
+            background: #1e3a5f;
+            color: #e2e8f0;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .message-btn:hover {
+            background: #e94560;
+            border-color: #e94560;
+            color: white;
+        }
+        .input-area { 
+            padding: 12px;
+            border-top: 1px solid #0f3460;
+        }
+        .input-group { display: flex; gap: 8px; }
+        #message-input { 
+            flex: 1; 
+            padding: 10px 14px; 
+            border: 1px solid #0f3460; 
+            border-radius: 8px;
+            background: #1e3a5f;
+            color: #fff;
+            font-size: 14px;
+        }
+        #message-input:focus { outline: none; border-color: #e94560; }
+        #message-input::placeholder { color: #64748b; }
+        button { 
+            padding: 10px 16px; 
+            background: #e94560; 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        button:hover { background: #d63850; }
+        button.secondary { background: #0f3460; }
+        button.secondary:hover { background: #1e3a5f; }
+        /* 状态 */
+        .status { 
+            padding: 4px 10px; 
+            border-radius: 12px; 
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .connected { background: #10b981; color: white; }
+        .disconnected { background: #ef4444; color: white; }
+        /* Slot 值 */
+        .slot-value { 
+            font-family: 'Monaco', 'Menlo', monospace;
+            background: #0f3460;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+        .slot-null { color: #64748b; font-style: italic; }
+        /* Events */
+        .event-item { 
+            padding: 8px 10px;
+            border-left: 3px solid #0f3460;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+        .event-item.user { border-color: #e94560; background: rgba(233, 69, 96, 0.1); }
+        .event-item.bot { border-color: #10b981; background: rgba(16, 185, 129, 0.1); }
+        .event-type { color: #64748b; font-size: 10px; text-transform: uppercase; }
+        /* Logo */
+        .logo { 
+            font-size: 18px; 
+            font-weight: 700;
+            color: #e94560;
+        }
+        .logo span { color: #fff; }
+        /* Empty state */
+        .empty-state { 
+            color: #64748b; 
+            font-size: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 左侧面板 -->
+        <div class="left-panel">
+            <!-- Flow 历史 -->
+            <div class="panel" style="flex: 0 0 auto; max-height: 200px;">
+                <div class="panel-header">
+                    <h2>Flow History</h2>
+                    <span id="flow-count">0 flows</span>
+                </div>
+                <div class="panel-content">
+                    <table>
+                        <thead><tr><th>Flow</th><th>Status</th></tr></thead>
+                        <tbody id="flow-history"></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Slots / Events / Tracker -->
+            <div class="panel" style="flex: 1;">
+                <div class="panel-header">
+                    <div class="tabs">
+                        <button class="tab active" onclick="switchTab('slots')">Slots</button>
+                        <button class="tab" onclick="switchTab('events')">Events</button>
+                        <button class="tab" onclick="switchTab('tracker')">Tracker</button>
+                    </div>
+                </div>
+                <div class="panel-content">
+                    <div id="slots-tab" class="tab-content active">
+                        <table>
+                            <thead><tr><th>Name</th><th>Value</th></tr></thead>
+                            <tbody id="slots-table"></tbody>
+                        </table>
+                    </div>
+                    <div id="events-tab" class="tab-content">
+                        <div id="events-list"></div>
+                    </div>
+                    <div id="tracker-tab" class="tab-content">
+                        <pre id="tracker-json" style="font-size: 11px; color: #94a3b8; white-space: pre-wrap;"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 中间 Flow 图 -->
+        <div class="panel flow-panel">
+            <div class="panel-header">
+                <h2>Flow: <span id="current-flow-name">-</span></h2>
+                <button class="secondary" onclick="refreshFlows()">Refresh</button>
+            </div>
+            <div class="panel-content">
+                <div id="flow-diagram">
+                    <div class="no-flow">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M9 17V7m0 10l-3-3m3 3l3-3M15 7v10m0-10l3 3m-3-3l-3 3"/>
+                        </svg>
+                        <div>选择左侧的 Flow 查看图形</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 右侧聊天 -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="logo">Atguigu<span>AI</span></div>
+                <span id="status" class="status disconnected">Disconnected</span>
+            </div>
+            <div id="chat-box"></div>
+            <div class="input-area">
+                <div style="margin-bottom: 8px; display: flex; gap: 8px; align-items: center;">
+                    <label style="font-size: 12px; color: #666; white-space: nowrap;">用户ID:</label>
+                    <input type="text" id="user-id-input" placeholder="输入用户ID" value="1001"
+                           style="flex: 1; padding: 4px 8px; font-size: 12px;">
+                    <button class="secondary" onclick="setUserId()" style="padding: 4px 12px; font-size: 12px;">切换</button>
+                </div>
+                <div class="input-group">
+                    <input type="text" id="message-input" placeholder="输入消息..." 
+                           onkeypress="if(event.key==='Enter')sendMessage()">
+                    <button onclick="sendMessage()">发送</button>
+                </div>
+                <div style="margin-top: 8px; display: flex; gap: 8px;">
+                    <button class="secondary" onclick="newConversation()" style="flex: 1;">新建对话</button>
+                    <button class="secondary" onclick="refreshState()">刷新状态</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 初始化 mermaid（可能加载失败，不影响核心功能）
+        let mermaidReady = false;
+        try {
+            if (typeof mermaid !== 'undefined') {
+                mermaid.initialize({ 
+                    startOnLoad: false, 
+                    theme: 'default',
+                    flowchart: { 
+                        useMaxWidth: true,
+                        htmlLabels: true,
+                        curve: 'basis'
+                    }
+                });
+                mermaidReady = true;
+            }
+        } catch (e) {
+            console.warn('Mermaid 初始化失败:', e);
+        }
+        
+        let sessionId = 'inspect-' + Date.now();
+        let ws = null;
+        let flows = [];
+        let currentFlowId = null;
+        let currentFlowIndex = null;
+        let trackerData = null;
+        
+        // WebSocket 连接
+        function connect() {
+            ws = new WebSocket(`ws://${location.host}/api/stream`);
+            ws.onopen = () => {
+                document.getElementById('status').textContent = 'Connected';
+                document.getElementById('status').className = 'status connected';
+                ws.send(JSON.stringify({type: 'connect', session_id: sessionId}));
+                refreshState();
+            };
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'bot_response') {
+                    data.data.forEach(msg => {
+                        const text = msg.text || JSON.stringify(msg);
+                        const buttons = msg.buttons || [];
+                        addMessage(text, 'bot', buttons);
+                    });
+                    // 刷新状态
+                    setTimeout(refreshState, 100);
+                }
+            };
+            ws.onclose = () => {
+                document.getElementById('status').textContent = 'Disconnected';
+                document.getElementById('status').className = 'status disconnected';
+                setTimeout(connect, 3000);
+            };
+        }
+        
+        // Tab 切换
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(tabName + '-tab').classList.add('active');
+        }
+        
+        // 添加消息（支持按钮）
+        function addMessage(text, type, buttons) {
+            const box = document.getElementById('chat-box');
+            const div = document.createElement('div');
+            div.className = 'message ' + type;
+            div.textContent = text;
+            
+            // 如果有按钮，添加按钮容器
+            if (buttons && buttons.length > 0) {
+                const btnContainer = document.createElement('div');
+                btnContainer.className = 'message-buttons';
+                buttons.forEach(btn => {
+                    const button = document.createElement('button');
+                    button.className = 'message-btn';
+                    button.textContent = btn.title;
+                    button.onclick = () => {
+                        // 发送 payload 作为用户消息
+                        const payload = btn.payload || btn.title;
+                        addMessage(btn.title, 'user');
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({type: 'message', message: payload}));
+                        }
+                    };
+                    btnContainer.appendChild(button);
+                });
+                div.appendChild(btnContainer);
+            }
+            
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+        
+        // 发送消息
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();
+            if (!text) return;
+            addMessage(text, 'user');
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({type: 'message', message: text}));
+            }
+            input.value = '';
+        }
+        
+        // 新建对话
+        function newConversation() {
+            sessionId = 'inspect-' + Date.now();
+            document.getElementById('chat-box').innerHTML = '';
+            document.getElementById('flow-history').innerHTML = '';
+            document.getElementById('slots-table').innerHTML = '';
+            document.getElementById('events-list').innerHTML = '';
+            document.getElementById('tracker-json').textContent = '';
+            document.getElementById('flow-count').textContent = '0 flows';
+            document.getElementById('flow-diagram').innerHTML = '<div class="no-flow"><div>选择左侧的 Flow 查看图形</div></div>';
+            currentFlowId = null;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({type: 'connect', session_id: sessionId}));
+            }
+            // 新建对话后自动设置用户 ID
+            setTimeout(() => {
+                const userId = document.getElementById('user-id-input').value.trim();
+                if (userId) {
+                    setUserId(false);  // 静默设置，不显示消息
+                }
+            }, 200);
+        }
+        
+        // 设置用户 ID
+        function setUserId(showMessage = true) {
+            const userId = document.getElementById('user-id-input').value.trim();
+            if (!userId) {
+                alert('请输入用户 ID');
+                return;
+            }
+            // 发送 SetSlots 命令设置 user_id
+            const cmd = `/SetSlots(user_id=${userId})`;
+            if (showMessage) {
+                addMessage(`切换用户: ${userId}`, 'user');
+            }
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({type: 'message', message: cmd}));
+            }
+            if (showMessage) {
+                setTimeout(refreshState, 100);
+            }
+        }
+        
+        // 刷新状态
+        async function refreshState() {
+            try {
+                const resp = await fetch(`/api/tracker/${sessionId}/full`);
+                if (resp.ok) {
+                    trackerData = await resp.json();
+                    updateUI(trackerData);
+                }
+            } catch (e) {
+                console.error('Error refreshing state:', e);
+            }
+        }
+        
+        // 更新 UI
+        function updateUI(data) {
+            // 更新 Slots
+            const slotsTable = document.getElementById('slots-table');
+            slotsTable.innerHTML = '';
+            if (data.slots) {
+                Object.entries(data.slots).forEach(([name, value]) => {
+                    const tr = document.createElement('tr');
+                    const valueStr = value === null ? '<span class="slot-null">null</span>' : 
+                                     `<span class="slot-value">${JSON.stringify(value)}</span>`;
+                    tr.innerHTML = `<td>${name}</td><td>${valueStr}</td>`;
+                    slotsTable.appendChild(tr);
+                });
+            }
+            if (slotsTable.innerHTML === '') {
+                slotsTable.innerHTML = '<tr><td colspan="2" class="empty-state">暂无 Slots</td></tr>';
+            }
+            
+            // 更新 Events
+            const eventsList = document.getElementById('events-list');
+            eventsList.innerHTML = '';
+            if (data.events && data.events.length > 0) {
+                data.events.forEach(evt => {
+                    const div = document.createElement('div');
+                    div.className = 'event-item ' + evt.event;
+                    div.innerHTML = `<div class="event-type">${evt.event}</div><div>${evt.text || ''}</div>`;
+                    eventsList.appendChild(div);
+                });
+            } else {
+                eventsList.innerHTML = '<div class="empty-state">暂无 Events</div>';
+            }
+            
+            // 更新 Flow History
+            const flowHistory = document.getElementById('flow-history');
+            flowHistory.innerHTML = '';
+            if (data.flow_history && data.flow_history.length > 0) {
+                document.getElementById('flow-count').textContent = data.flow_history.length + ' flows';
+                data.flow_history.forEach((hist, index) => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'flow-row' + (index === currentFlowIndex ? ' active' : '');
+                    tr.dataset.index = index;
+                    const status = hist.completed ? '✓' : '...';
+                    tr.innerHTML = `<td>${hist.flow_id}</td><td>${status}</td>`;
+                    tr.onclick = () => selectFlowByIndex(index, hist.flow_id);
+                    flowHistory.appendChild(tr);
+                });
+            } else {
+                flowHistory.innerHTML = '<tr><td colspan="2" class="empty-state">暂无 Flow</td></tr>';
+                document.getElementById('flow-count').textContent = '0 flows';
+            }
+            
+            // 更新 Tracker JSON
+            document.getElementById('tracker-json').textContent = JSON.stringify(data, null, 2);
+            
+            // 如果有活跃 Flow，选中它
+            if (data.active_flow && !currentFlowId) {
+                selectFlow(data.active_flow);
+            }
+        }
+        
+        // 加载 Flows
+        async function refreshFlows() {
+            try {
+                const resp = await fetch('/api/flows');
+                if (resp.ok) {
+                    flows = await resp.json();
+                    if (currentFlowId) {
+                        renderFlowDiagram(currentFlowId);
+                    }
+                }
+            } catch (e) {
+                console.error('Error loading flows:', e);
+            }
+        }
+        
+        // 选择 Flow（通过索引）
+        function selectFlowByIndex(index, flowId) {
+            currentFlowIndex = index;
+            currentFlowId = flowId;
+            document.querySelectorAll('.flow-row').forEach(r => r.classList.remove('active'));
+            const targetRow = document.querySelector(`.flow-row[data-index="${index}"]`);
+            if (targetRow) targetRow.classList.add('active');
+            renderFlowDiagram(flowId);
+        }
+        
+        // 选择 Flow（通过名称，保留向后兼容）
+        function selectFlow(flowId) {
+            currentFlowId = flowId;
+            currentFlowIndex = null;
+            document.querySelectorAll('.flow-row').forEach(r => r.classList.remove('active'));
+            // 只选中第一个匹配的
+            const firstMatch = document.querySelector(`.flow-row td:first-child`);
+            document.querySelectorAll('.flow-row').forEach(r => {
+                if (r.cells[0].textContent === flowId && currentFlowIndex === null) {
+                    r.classList.add('active');
+                    currentFlowIndex = parseInt(r.dataset.index);
+                }
+            });
+            renderFlowDiagram(flowId);
+        }
+        
+        // 渲染 Flow 图
+        async function renderFlowDiagram(flowId) {
+            const flow = flows.find(f => f.id === flowId);
+            document.getElementById('current-flow-name').textContent = flowId;
+            
+            // 内置 patterns 的特殊处理（UI展示名称为pattern_xxx，实际触发action_xxx）
+            const builtinPatterns = {
+                'pattern_chitchat': {
+                    name: 'Chitchat Pattern',
+                    action: 'action_chitchat_response',
+                    description: '闲聊模式 - 处理非业务相关的闲聊对话',
+                    diagram: 'flowchart TD\n    start([用户输入]) --> detect{检测闲聊}\n    detect --> llm[LLM生成回复]\n    llm --> respond([返回闲聊回复])'
+                },
+                'pattern_cannot_handle': {
+                    name: 'Cannot Handle Pattern',
+                    action: 'action_default_fallback',
+                    description: '无法处理模式 - 当系统无法理解用户意图时触发',
+                    diagram: 'flowchart TD\n    start([用户输入]) --> detect{无法识别}\n    detect --> fallback[默认回复]\n    fallback --> respond([返回降级回复])'
+                },
+                'pattern_cancel': {
+                    name: 'Cancel Pattern',
+                    action: 'action_cancel_flow',
+                    description: '取消模式 - 用户取消当前对话流程',
+                    diagram: 'flowchart TD\n    start([用户输入]) --> detect{检测取消意图}\n    detect --> clear[清除当前Flow]\n    clear --> respond([确认取消])'
+                },
+                'pattern_session_start': {
+                    name: 'Session Start Pattern',
+                    action: 'action_session_start',
+                    description: '会话开始模式 - 新会话初始化',
+                    diagram: 'flowchart TD\n    start([会话开始]) --> init[初始化Tracker]\n    init --> greet[发送欢迎语]\n    greet --> listen([等待用户输入])'
+                },
+                'pattern_search': {
+                    name: 'Knowledge Search Pattern',
+                    action: 'action_trigger_search',
+                    description: '知识检索模式 - GraphRAG知识库检索，包含路由识别、混合检索、Cypher生成等完整流程',
+                    diagram: `flowchart TD
+    start([用户提问]) --> push[压入SearchStackFrame]
+    push --> policy[EnterpriseSearchPolicy处理]
+    policy --> hasRetriever{检索器可用?}
+    hasRetriever -->|否| noKB[utter_no_knowledge_base]
+    hasRetriever -->|是| route[1.标签路由<br/>LLM识别节点类型]
+    route --> routeFail{路由成功?}
+    routeFail -->|否| simpleRoute[降级: 简单关键词路由]
+    routeFail -->|是| retrieve[2.混合检索<br/>Vector + Fulltext]
+    simpleRoute --> retrieve
+    retrieve --> hasResults{有检索结果?}
+    hasResults -->|否| fallback[utter_no_relevant_answer_found]
+    hasResults -->|是| cypher[3.LLM生成Cypher查询]
+    cypher --> validate[4.Cypher校验与修正]
+    validate --> execute[5.执行Neo4j查询]
+    execute --> execFail{执行成功?}
+    execFail -->|否| retry[重试/降级处理]
+    execFail -->|是| format[6.格式化结果]
+    retry --> format
+    format --> respond([返回SearchResult])
+    fallback --> respond
+    noKB --> respond
+    
+    style push fill:#4a90d9,color:#fff
+    style policy fill:#5c6bc0,color:#fff
+    style route fill:#26a69a,color:#fff
+    style retrieve fill:#26a69a,color:#fff
+    style cypher fill:#26a69a,color:#fff
+    style validate fill:#26a69a,color:#fff
+    style execute fill:#26a69a,color:#fff
+    style format fill:#26a69a,color:#fff
+    style fallback fill:#ef5350,color:#fff
+    style noKB fill:#ef5350,color:#fff`
+                },
+                'pattern_completed': {
+                    name: 'Flow Completed Pattern',
+                    action: 'action_flow_completed',
+                    description: '流程完成模式 - Flow执行完成后询问用户是否还需要帮助',
+                    diagram: 'flowchart TD\n    start([Flow完成]) --> check{流程结束}\n    check --> ask[询问还需要什么帮助]\n    ask --> listen([等待用户输入])'
+                },
+                'pattern_human_handoff': {
+                    name: 'Human Handoff Pattern',
+                    action: 'action_human_handoff',
+                    description: '人工转接模式 - 将对话转接给人工客服',
+                    diagram: 'flowchart TD\n    start([用户请求]) --> detect{检测转人工意图}\n    detect --> handoff[转接人工客服]\n    handoff --> respond([通知用户等待])'
+                }
+            };
+            
+            const pattern = builtinPatterns[flowId];
+            if (pattern) {
+                // 显示内置 pattern 的图
+                const container = document.getElementById('flow-diagram');
+                container.innerHTML = '<div class="pattern-info"><strong>' + pattern.name + '</strong><p>' + pattern.description + '</p><p style="font-size:12px;color:#888;">Action: <code>' + pattern.action + '</code></p></div><div id="mermaid-' + Date.now() + '"></div>';
+                try {
+                    const {svg} = await mermaid.render('mermaid-render-' + Date.now(), pattern.diagram);
+                    container.querySelector('div:last-child').innerHTML = svg;
+                } catch(e) {
+                    console.error('Mermaid render error:', e);
+                }
+                return;
+            }
+            
+            if (!flow) {
+                document.getElementById('flow-diagram').innerHTML = 
+                    '<div class="no-flow"><div>Flow "' + flowId + '" 未找到</div></div>';
+                return;
+            }
+            
+            // 生成 Mermaid 图
+            let mermaidCode = 'flowchart TD\n';
+            flow.steps.forEach((step, idx) => {
+                const nodeId = step.id.replace(/[^a-zA-Z0-9]/g, '_');
+                const label = step.action || step.collect || step.id;
+                const shape = step.action ? '([' + label + '])' : step.collect ? '{{' + label + '}}' : '[' + label + ']';
+                mermaidCode += '    ' + nodeId + shape + '\n';
+                
+                // 处理 next 字段（可能是字符串、数组或对象）
+                // 辅助函数：从 target 提取目标节点ID
+                function extractTarget(target) {
+                    if (typeof target === 'string') {
+                        return target;
+                    } else if (Array.isArray(target) && target.length > 0) {
+                        // target 是嵌套步骤数组，取最后一个步骤的 next 或返回 END
+                        const lastStep = target[target.length - 1];
+                        if (lastStep.next) {
+                            return extractTarget(lastStep.next);
+                        }
+                        return 'END';
+                    }
+                    return null;
+                }
+                
+                const nextVal = step.next;
+                if (nextVal) {
+                    if (typeof nextVal === 'string') {
+                        // 简单字符串：直接连接
+                        if (nextVal.toLowerCase() !== 'end') {
+                            const nextId = nextVal.replace(/[^a-zA-Z0-9]/g, '_');
+                            mermaidCode += '    ' + nodeId + ' --> ' + nextId + '\n';
+                        } else {
+                            mermaidCode += '    ' + nodeId + ' --> END((End))\n';
+                        }
+                    } else if (Array.isArray(nextVal)) {
+                        // 条件数组：解析 if/then/else 结构
+                        nextVal.forEach(cond => {
+                            let target = extractTarget(cond.then || cond.else);
+                            const condLabel = cond.if ? cond.if.substring(0, 20).replace(/"/g, "'") : 'else';
+                            if (target) {
+                                if (target.toLowerCase() !== 'end') {
+                                    const targetId = target.replace(/[^a-zA-Z0-9]/g, '_');
+                                    mermaidCode += '    ' + nodeId + ' -->|' + condLabel + '| ' + targetId + '\n';
+                                } else {
+                                    mermaidCode += '    ' + nodeId + ' -->|' + condLabel + '| END((End))\n';
+                                }
+                            }
+                        });
+                    }
+                } else {
+                    // 无 next：连接到 END
+                    mermaidCode += '    ' + nodeId + ' --> END((End))\n';
+                }
+            });
+            
+            // 高亮当前步骤
+            if (trackerData && trackerData.flow_stack) {
+                const currentFrame = trackerData.flow_stack.find(f => f.flow_id === flowId);
+                if (currentFrame) {
+                    const stepId = currentFrame.step_id.replace(/[^a-zA-Z0-9]/g, '_');
+                    mermaidCode += '    style ' + stepId + ' fill:#e94560,color:#fff\n';
+                }
+            }
+            
+            try {
+                const container = document.getElementById('flow-diagram');
+                container.innerHTML = '<div class="mermaid">' + mermaidCode + '</div>';
+                await mermaid.run({ nodes: container.querySelectorAll('.mermaid') });
+            } catch (e) {
+                console.error('Mermaid error:', e);
+                document.getElementById('flow-diagram').innerHTML = 
+                    '<div class="no-flow"><div>图形渲染失败</div><pre style="font-size:10px;color:#666;">' + mermaidCode.replace(/\\n/g, '\n') + '</pre></div>';
+            }
+        }
+        
+        // 初始化
+        connect();
+        refreshFlows();
+    </script>
+</body>
+</html>

@@ -1,0 +1,131 @@
+{# 命令生成提示词模板 #}
+{# 适配本项目命令体系 #}
+
+## 任务说明
+分析当前对话上下文，生成相应的命令来启动业务流程（Flow）、提取槽位信息，或处理闲聊和知识检索请求。
+
+---
+
+## 可用 Flows 和槽位
+{% if flows and flows|length > 0 %}
+```json
+{"flows":[{% for flow in flows %}{"name":"{{ flow.id }}","description":"{{ flow.description | default('') | replace('"', '\\"') }}"{% if flow.slots_to_collect %},"slots":[{% for slot in flow.slots_to_collect %}{"name":"{{ slot }}"{% if slot_info and slot in slot_info %}{% if slot_info[slot].description %},"description":"{{ slot_info[slot].description | replace('"', '\\"') }}"{% endif %}{% if slot_info[slot].type %},"type":"{{ slot_info[slot].type }}"{% endif %}{% if slot_info[slot].allowed_values %},"allowed_values":{{ slot_info[slot].allowed_values | tojson }}{% endif %}{% endif %}}{% if not loop.last %},{% endif %}{% endfor %}]{% endif %}}{% if not loop.last %},{% endif %}{% endfor %}]}
+```
+{% else %}
+当前没有定义 Flows。
+{% endif %}
+
+---
+
+## 可用命令
+
+### Flow 控制命令
+* `start flow <flow_name>`: 启动一个业务流程。例如：`start flow transfer_money`
+* `cancel flow`: 取消当前正在执行的流程（仅当用户明确要求时使用）
+* `change flow <flow_name>`: 切换到另一个流程
+
+### 槽位命令
+* `set slot <slot_name> <value>`: 设置槽位值。例如：`set slot user_name "张三"`
+  - 字符串值用引号包围
+  - 数字直接写：`set slot amount 100`
+  - 布尔值：`set slot confirmed true`
+
+### 回答命令
+* `knowledge_answer`: 从知识库检索答案回复用户问题。当用户咨询知识类问题且没有匹配的 Flow 时使用。
+* `chitchat`: 处理闲聊消息。当用户发送问候、感谢等非业务性消息时使用。
+* `cannot_handle`: 无法理解或处理用户请求。
+
+### 会话命令
+* `clarify`: 当用户意图不明确时，请求用户澄清。
+* `human_handoff`: 转接人工客服。当用户明确要求或系统无法解决时使用。
+
+---
+
+## 命令生成规则
+
+### 启动 Flow
+* 仅当用户意图与某个 Flow 的描述完全匹配时才启动
+* 注意 Flow 描述的精确范围，不要过度推测
+* **重要：启动 Flow 时，不要从对话历史中推断槽位值。应该只输出 `start flow` 命令，让系统引导用户提供所需信息**
+
+### 设置槽位
+* 只从用户**当前消息**中明确提供的信息提取，不要猜测或填充占位符
+* **禁止**从对话历史中推断槽位值 - 每个 Flow 的槽位必须由用户在当前对话中重新提供
+* 分类槽位：匹配允许的值列表，无法匹配时填 "other"
+* 布尔槽位：肯定回答映射为 `true`，否定映射为 `false`
+* 文本槽位：保持用户原话，不做修改
+
+### 知识检索优先级
+* 如果不确定是启动 Flow 还是使用 `knowledge_answer`，优先尝试启动 Flow
+
+### 取消 Flow
+* 除非用户明确要求取消，否则不要取消任何 Flow
+* 用户可以在一个 Flow 进行中启动另一个 Flow
+
+### 通用规则
+* 只使用用户提供的信息
+* 严格遵守上述命令格式
+* 专注于处理用户最新消息
+* 只参考历史消息来辅助理解上下文
+
+---
+
+## 决策规则表
+| 条件 | 动作 |
+|------|------|
+| 用户意图精确匹配某个 Flow | `start flow` |
+| 用户提供了槽位信息 | `set slot` |
+| 用户询问知识性问题，无匹配 Flow | `knowledge_answer` |
+| 用户发送问候、感谢等闲聊 | `chitchat` |
+| 用户意图不清晰 | `clarify` |
+| 用户要求转人工 | `human_handoff` |
+| 无法处理 | `cannot_handle` |
+
+---
+
+## 当前状态
+{% if current_flow %}
+```json
+{"active_flow":"{{ current_flow }}"{% if current_slot %},"current_step":{"requested_slot":"{{ current_slot }}"{% if current_slot_description %},"description":"{{ current_slot_description | replace('"', '\\"') }}"{% endif %}}{% endif %}{% if flow_slots %},"slots":[{% for slot in flow_slots %}{"name":"{{ slot.name }}","value":"{{ slot.value | default('null') }}"{% if slot.type %},"type":"{{ slot.type }}"{% endif %}{% if slot.description %},"description":"{{ slot.description | replace('"', '\\"') }}"{% endif %}}{% if not loop.last %},{% endif %}{% endfor %}]{% endif %}}
+```
+{% if current_slot %}
+**【重要】当前正在收集槽位: `{{ current_slot }}`**
+
+收集槽位规则（必须严格遵守）：
+1. 用户的回答**必须且只能**设置到 `{{ current_slot }}` 槽位
+2. 命令格式: `set slot {{ current_slot }} <用户的回答>`
+3. **严禁**设置其他槽位（即使用户提到了其他信息）
+4. **严禁**启动新流程（除非用户明确说"取消"、"不要了"、"换一个"等）
+5. 如果用户回复的是数字（如"1"、"2"），这是在选择列表中的选项
+6. 如果用户回复的是文字内容，直接作为槽位值
+
+示例：
+- 用户说"2" → `set slot {{ current_slot }} 2`
+- 用户说"不想要了" → `set slot {{ current_slot }} 不想要了`
+- 用户说"第一个" → `set slot {{ current_slot }} 1`
+{% endif %}
+{% else %}
+当前不在任何 Flow 中。只有先启动一个 Flow，才能设置该 Flow 的槽位。
+
+**重要规则**：启动新 Flow 时，只输出 `start flow <name>` 命令。即使对话历史中提到过相关信息（如订单号、手机号等），也**不要**同时设置槽位。让系统通过流程引导用户重新提供必要信息。
+{% endif %}
+
+---
+
+## 对话历史
+{% if conversation_history %}
+{% for msg in conversation_history %}
+{{ msg.role }}: {{ msg.content }}
+{% endfor %}
+{% else %}
+（这是对话的开始）
+{% endif %}
+
+---
+
+## 任务
+根据用户最新消息生成命令列表（每行一个命令）：
+
+用户消息："""{{ user_message }}"""
+
+你的命令列表：

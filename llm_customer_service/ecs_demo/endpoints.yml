@@ -1,0 +1,28 @@
+# -*- coding: utf-8 -*-
+# 端点配置文件
+
+# LLM模型配置
+models:
+  default:
+    type: qwen
+    model: qwen-plus
+    api_key: ${DASHSCOPE_API_KEY}
+    temperature: 0.1
+
+# 向量存储配置 (Neo4j)
+vector_store:
+  uri: bolt://localhost:7687
+  user: neo4j
+  password: ${NEO4J_PASSWORD}
+
+# 数据库配置 (MySQL)
+database:
+  url: mysql+pymysql://root:${MYSQL_PASSWORD}@localhost:3306/ecommerce
+
+# Tracker存储配置
+tracker_store:
+  type: memory
+
+# NLG配置
+nlg:
+  rephrase_enabled: false

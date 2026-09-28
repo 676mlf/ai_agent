@@ -1,0 +1,28 @@
+# -*- coding: utf-8 -*-
+# 物流Flow定义
+# 适配atguigu_ai框架语法，复刻参考实现
+
+version: "3.1"
+
+flows:
+  # === 查询承运商的flow，严格按照以下设定的业务流程 ===
+  query_logistics_companys:
+    name: 查询支持的快递公司
+    description: 查询支持的快递公司
+    steps:
+      - action: action_get_logistics_companys
+
+  # === 查询已发货订单的物流信息的flow，严格按照以下设定的业务流程 ===
+  query_shipping_order_logistics:
+    name: 查询进行中订单的物流信息
+    description: 查询订单的物流信息
+    steps:
+      - set_slots:  # 查询已发货的订单
+          - goto: action_ask_order_id_shipped  # goto的值设为action_ask_order_id_shipped，表示已发货
+      - collect: order_id  # button展示给用户，用户选择一个订单
+        next:
+          - if: slots.order_id != "false"
+            then:
+              - action: action_get_logistics_info  # 查询此订单的物流信息
+                next: END
+          - else: END

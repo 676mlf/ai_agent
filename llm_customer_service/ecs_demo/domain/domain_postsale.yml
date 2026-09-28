@@ -1,0 +1,32 @@
+# -*- coding: utf-8 -*-
+# 售后模块Domain定义
+# 适配atguigu_ai框架
+
+version: "3.1"
+
+# 售后相关槽位
+slots:
+  postsale_order_id:
+    type: text
+    description: 售后订单ID
+  
+  postsale_type:
+    type: text
+    description: 售后类型（退货/换货）
+  
+  postsale_reason:
+    type: text
+    description: 售后原因
+
+# 售后相关响应
+responses:
+  utter_ask_postsale_type:
+    - text: "请选择售后类型：\n1. 退货退款\n2. 换货"
+  
+  utter_ask_postsale_reason:
+    - text: "请说明您申请售后的原因："
+
+# 售后相关Action声明
+actions:
+  - action_check_postsale_eligible
+  - action_apply_postsale

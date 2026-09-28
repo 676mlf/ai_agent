@@ -1,0 +1,27 @@
+# -*- coding: utf-8 -*-
+# 售后Flow定义
+# 适配atguigu_ai框架语法
+
+version: "3.1"
+
+flows:
+  apply_postsale:
+    name: 申请售后
+    description: 当用户想要申请退货或换货时使用
+    steps:
+      - id: ask_order
+        action: action_ask_order_id
+      - id: collect_order
+        collect: postsale_order_id
+      - id: check_eligible
+        action: action_check_postsale_eligible
+      - id: ask_type
+        action: utter_ask_postsale_type
+      - id: collect_type
+        collect: postsale_type
+      - id: ask_reason
+        action: utter_ask_postsale_reason
+      - id: collect_reason
+        collect: postsale_reason
+      - id: apply
+        action: action_apply_postsale

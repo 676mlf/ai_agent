@@ -1,0 +1,35 @@
+# -*- coding: utf-8 -*-
+# 通用Pattern定义
+# 适配atguigu_ai框架
+
+version: "3.1"
+
+# 通用槽位
+slots:
+  user_id:
+    type: text
+    description: 用户ID
+
+# 通用响应
+responses:
+  utter_default:
+    - text: "抱歉，我没有理解您的意思。请换一种方式表达。"
+    - text: "不好意思，我不太明白您的意思，能换个说法吗？"
+  
+  utter_can_do_something_else:
+    - text: "还有什么我可以帮您的吗？"
+    - text: "请问还有其他需要帮助的吗？"
+  
+  utter_human_handoff:
+    - text: "好的，正在为您转接人工客服，请稍候..."
+  
+  utter_welcome:
+    - text: "您好！我是电商客服助手，有什么可以帮您的吗？"
+  
+  utter_chitchat_response:
+    - text: "好的，我明白了。还有什么关于订单、物流或售后的问题我可以帮您的吗？"
+    - text: "嗯嗯，请问还有其他需要帮助的吗？"
+  
+  utter_cannot_handle:
+    - text: "抱歉，这个问题我暂时无法处理。您可以尝试换一种方式描述，或者联系人工客服。"
+    - text: "不好意思，我没能理解您的需求。请问您是想查询订单、物流还是申请售后呢？"

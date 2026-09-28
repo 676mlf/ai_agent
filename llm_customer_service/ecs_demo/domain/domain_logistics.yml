@@ -1,0 +1,17 @@
+# -*- coding: utf-8 -*-
+# 物流模块Domain定义
+# 适配atguigu_ai框架，复刻参考实现
+
+version: "3.1"
+
+slots:
+  # === 查询物流 ===
+  logistics_id:  # 物流ID
+    type: text
+    mappings:
+      - type: controlled
+
+actions:
+  # === 查询承运商 ===
+  - action_get_logistics_companys  # 获取支持的承运商
+  - action_get_logistics_info  # 根据指定的订单id，查询具体的物流信息
