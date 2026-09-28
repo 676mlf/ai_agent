@@ -6,3 +6,9 @@ __pycache__/
 *.log
 .venv/
 venv/
+
+# Python 构建产物
+*.egg-info/
+*.egg
+build/
+dist/
