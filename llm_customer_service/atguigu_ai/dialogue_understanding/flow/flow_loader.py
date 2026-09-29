@@ -79,9 +79,15 @@ class FlowLoader:
         """
         logger.debug(f"Loading flows from directory: {dir_path}")
         
-        # 查找所有YAML文件
-        yaml_files = list(dir_path.glob("*.yml")) + list(dir_path.glob("*.yaml"))
-        
+        # 查找所有YAML文件：优先当前目录，找不到时递归查找子目录
+        # （兼容 data/ 目录下把Flow放在 data/flows/ 子目录的工程结构）
+        yaml_files = sorted(list(dir_path.glob("*.yml")) + list(dir_path.glob("*.yaml")))
+
+        if not yaml_files:
+            yaml_files = sorted(
+                list(dir_path.rglob("*.yml")) + list(dir_path.rglob("*.yaml"))
+            )
+
         if not yaml_files:
             logger.warning(f"No YAML files found in: {dir_path}")
             return FlowsList()

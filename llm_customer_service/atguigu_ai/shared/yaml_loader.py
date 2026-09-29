@@ -172,9 +172,11 @@ def dump_yaml_string(
 
 def merge_yaml_files(paths: List[Union[str, Path]]) -> Dict[str, Any]:
     """合并多个YAML文件
-    
-    后面的文件会覆盖前面文件中的同名键。
-    
+
+    字典类型的键(如 slots / responses / forms)递归深度合并；
+    领域集合类的列表键(如 actions / flows / e2e_actions)取并集(保持声明顺序并去重)；
+    其余同名键由后面的文件覆盖前面的文件。
+
     参数：
         paths: YAML文件路径列表
         
@@ -191,14 +193,53 @@ def merge_yaml_files(paths: List[Union[str, Path]]) -> Dict[str, Any]:
     return result
 
 
-def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+# 领域文件中声明“集合”的列表型键：多个domain文件合并时应取并集，而不是互相覆盖
+MERGEABLE_LIST_KEYS = frozenset(
+    {
+        "actions",
+        "flows",
+        "e2e_actions",
+        "intents",
+        "entities",
+        "responses_precedence",
+    }
+)
+
+
+def _merge_lists(base: List[Any], override: List[Any]) -> List[Any]:
+    """合并两个列表：按顺序取并集(去重)
+
+    参数：
+        base: 先加载的文件中的列表
+        override: 后加载的文件中的列表
+        
+    返回：
+        去重后的合并列表(base在前，override中新增项在后)
+    """
+    merged: List[Any] = []
+    
+    for item in list(base) + list(override):
+        if item not in merged:
+            merged.append(item)
+    
+    return merged
+
+
+def _deep_merge(
+    base: Dict[str, Any],
+    override: Dict[str, Any],
+    top_level: bool = True,
+) -> Dict[str, Any]:
     """深度合并两个字典
-    
-    递归合并嵌套的字典，override中的值会覆盖base中的值。
-    
+
+    递归合并嵌套的字典；顶层的领域集合类列表键(见 MERGEABLE_LIST_KEYS)取并集，
+    其余场景 override 中的值会覆盖 base 中的值。
+
     参数：
         base: 基础字典
         override: 覆盖字典
+        top_level: 是否处于顶层(仅顶层的集合类列表键做并集合并，
+                   避免误合并 mappings/buttons 等嵌套列表)
         
     返回：
         合并后的字典
@@ -206,9 +247,21 @@ def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any
     result = base.copy()
     
     for key, value in override.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-            result[key] = _deep_merge(result[key], value)
-        else:
-            result[key] = value
+        if key in result:
+            base_value = result[key]
+            # 字典递归合并
+            if isinstance(base_value, dict) and isinstance(value, dict):
+                result[key] = _deep_merge(base_value, value, top_level=False)
+                continue
+            # 顶层集合类列表取并集，保证多文件定义的动作/flow都能保留
+            if (
+                top_level
+                and key in MERGEABLE_LIST_KEYS
+                and isinstance(base_value, list)
+                and isinstance(value, list)
+            ):
+                result[key] = _merge_lists(base_value, value)
+                continue
+        result[key] = value
     
     return result

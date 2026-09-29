@@ -144,8 +144,11 @@ class Domain:
         path = Path(domain_path)
         
         if path.is_dir():
-            # 目录模式：合并所有YAML文件
-            yaml_files = list(path.glob("*.yml")) + list(path.glob("*.yaml"))
+            # 目录模式：按文件名排序后合并所有YAML文件，保证合并顺序可复现
+            yaml_files = sorted(
+                set(path.glob("*.yml")) | set(path.glob("*.yaml")),
+                key=lambda p: p.name,
+            )
             if not yaml_files:
                 raise DomainValidationError(f"目录中没有找到YAML文件: {path}")
             domain_dict = merge_yaml_files(yaml_files)

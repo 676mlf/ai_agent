@@ -112,6 +112,15 @@ def main(args: Optional[list] = None) -> None:
     
     # 将当前目录添加到Python路径，以便导入自定义模块
     sys.path.insert(0, str(cwd))
+
+    # 让国内模型服务与本地服务直连，避免系统代理(如 Clash/v2rayN)引起
+    # ProxyError('Unable to connect to proxy', SSLEOFError()) 导致对话无回复
+    try:
+        from atguigu_ai.shared.proxy import bypass_proxy_for_domestic_hosts
+        bypass_proxy_for_domestic_hosts()
+    except Exception:
+        # 代理配置属于兜底逻辑，失败不应影响主流程
+        pass
     
     try:
         # 导入并注册子命令

@@ -30,7 +30,7 @@ from neo4j import GraphDatabase
 from pydantic import BaseModel, Field
 from neo4j.exceptions import CypherSyntaxError
 from neo4j_graphrag.retrievers import HybridRetriever
-from langchain_community.chat_models.tongyi import ChatTongyi
+from langchain_openai import ChatOpenAI
 from langchain_community.graphs.neo4j_graph import Neo4jGraph
 from neo4j_graphrag.retrievers.text2cypher import extract_cypher
 from langchain_community.chains.graph_qa.cypher import CypherQueryCorrector, Schema
@@ -220,12 +220,42 @@ class GraphRAG(InformationRetrieval):
         # 3、初始化 Cypher查询校正器（langchain提供的api）
         self.cypher_corrector = CypherQueryCorrector(corrector_schema)
 
-        # 4、配置 LLM（使用coder模型，对语法处理效果更好）
-        # 保持思考模式开启，有助于 Cypher 生成/校验等复杂任务的准确性
-        model_name = "qwen3-coder-plus-2025-07-22"
+        # 4、配置 LLM（OpenAI 兼容接口，默认使用硅基流动的 Coder 模型）
+        # Cypher 生成/校验对语法要求高，因此选用 coder 类模型
         dotenv.load_dotenv()
-        model_api_key = os.getenv("DASHSCOPE_API_KEY")
-        self.llm = ChatTongyi(model=model_name, api_key=model_api_key)
+        model_name = (
+            os.getenv("CYPHER_LLM_MODEL")
+            or os.getenv("LLM_MODEL")
+            or "Qwen/Qwen3-Coder-30B-A3B-Instruct"
+        )
+        model_api_base = os.getenv("LLM_API_BASE", "https://api.siliconflow.cn/v1")
+        model_api_key = (
+            os.getenv("SILICONFLOW_API_KEY")
+            or os.getenv("LLM_API_KEY")
+            or os.getenv("OPENAI_API_KEY")
+            or os.getenv("DASHSCOPE_API_KEY")
+        )
+        if not model_api_key:
+            raise ValueError(
+                "未找到模型 API Key，请在 ecs_demo/.env 中配置 SILICONFLOW_API_KEY"
+            )
+
+        # 让模型服务与本地服务直连，避免系统代理(如 Clash)导致 ProxyError
+        try:
+            from urllib.parse import urlparse
+            from atguigu_ai.shared.proxy import bypass_proxy_for_domestic_hosts
+
+            bypass_proxy_for_domestic_hosts([urlparse(model_api_base).hostname or ""])
+        except Exception:
+            pass
+
+        self.llm = ChatOpenAI(
+            model=model_name,
+            api_key=model_api_key,
+            base_url=model_api_base,
+            temperature=0,
+            timeout=60,
+        )
 
         # 5、初始化嵌入模型
         self._init_embeddings()

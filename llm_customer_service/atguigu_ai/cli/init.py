@@ -120,20 +120,20 @@ DEFAULT_ENDPOINTS_CONTENT = '''# Endpoints配置文件
 
 # 模型组配置 - 统一管理所有LLM和嵌入模型
 models:
-  # 默认LLM模型
+  # 默认LLM模型（openai 类型可对接硅基流动SiliconFlow、vLLM等OpenAI兼容服务）
   default:
-    type: "qwen"  # openai, qwen, azure, anthropic
-    model: "qwen-plus"
+    type: "openai"  # openai, qwen, azure, anthropic
+    model: "Qwen/Qwen3-30B-A3B-Instruct-2507"
     temperature: 0.0
     max_tokens: 1024
-    # api_key: ${DASHSCOPE_API_KEY}  # 从环境变量读取
-    # api_base: ""  # 自定义API地址（用于vLLM等自部署服务）
+    # api_key: ${SILICONFLOW_API_KEY}  # 从环境变量读取
+    # api_base: "https://api.siliconflow.cn/v1"  # 自定义API地址（用于硅基流动/vLLM等）
     # enable_thinking: false  # 启用深度思考模式
   
   # 可定义多个模型用于不同用途
   # rephrase:
-  #   type: "qwen"
-  #   model: "qwen-turbo"
+  #   type: "openai"
+  #   model: "Qwen/Qwen3-30B-A3B-Instruct-2507"
   #   temperature: 0.7
 
 # 嵌入模型配置
@@ -343,10 +343,10 @@ LLM驱动的对话系统项目。
 ```yaml
 models:
   default:
-    type: "qwen"  # openai, qwen, azure, anthropic
-    model: "qwen-plus"
-    # api_key: ${DASHSCOPE_API_KEY}
-    # api_base: "http://localhost:8000/v1"  # vLLM等自部署服务
+    type: "openai"  # openai, qwen, azure, anthropic
+    model: "Qwen/Qwen3-30B-A3B-Instruct-2507"
+    # api_key: ${SILICONFLOW_API_KEY}
+    # api_base: "https://api.siliconflow.cn/v1"  # 硅基流动/vLLM等OpenAI兼容服务
     # enable_thinking: false  # 深度思考模式
 ```
 

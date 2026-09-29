@@ -14,6 +14,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from atguigu_ai.shared.llm.base_client import LLMClient, LLMResponse
+from atguigu_ai.shared.proxy import bypass_proxy_for_domestic_hosts
 from atguigu_ai.shared.exceptions import (
     LLMAuthenticationError,
     LLMConnectionError,
@@ -120,6 +121,10 @@ class LangChainClient(LLMClient):
         
         根据type创建对应的LangChain Chat模型对象。
         """
+        # 国内模型服务与本地服务直连，避免系统代理(如 Clash/v2rayN)
+        # 引起 ProxyError('Unable to connect to proxy', SSLEOFError())
+        bypass_proxy_for_domestic_hosts()
+        
         if self.type == "openai":
             return self._create_openai_llm()
         elif self.type == "qwen":
@@ -379,17 +384,63 @@ class LangChainClient(LLMClient):
     def _handle_error(self, error: Exception) -> None:
         """处理API错误
         
+        将底层异常转换为语义化的LLM异常，并附带可操作的排查提示。
+        
         参数：
             error: 原始异常
         """
         error_message = str(error)
         error_type = type(error).__name__
+        lowered = error_message.lower()
+        # 异常链上的类型名也要判断（如 ProxyError 包装的 SSLEOFError）
+        chain_types = {error_type}
+        cause = error.__cause__ or error.__context__
+        while cause is not None:
+            chain_types.add(type(cause).__name__)
+            cause = cause.__cause__ or cause.__context__
+        chain_text = " ".join(chain_types).lower()
         
-        if "timeout" in error_message.lower():
+        # 1) 代理问题：开启系统代理(如 Clash)后连不上国内模型服务
+        if "proxyerror" in lowered or "proxy" in chain_text or "ssl" in chain_text:
+            raise LLMConnectionError(
+                f"网络代理异常({error_type}): {error_message}\n"
+                f"提示: 检测到请求经过了系统代理且握手失败。请关闭系统代理，"
+                f"或在 .env / 环境变量中把模型服务域名加入 NO_PROXY"
+                f"(例如 NO_PROXY=api.siliconflow.cn,localhost,127.0.0.1)。"
+            )
+        
+        # 2) 认证失败：API Key 无效 / 与服务商不匹配
+        if (
+            "invalid_api_key" in lowered
+            or "invalidapikey" in lowered
+            or "incorrect api key" in lowered
+            or "status_code: 401" in lowered
+            or "401" in lowered and ("api-key" in lowered or "api_key" in lowered or "apikey" in lowered)
+            or "authentication" in lowered
+            or "unauthorized" in lowered
+        ):
+            raise LLMAuthenticationError(
+                f"认证失败({self.type}/{self.model}): {error_message}\n"
+                f"提示: 请确认 api_key 与服务商匹配"
+                f"(硅基流动的 key 只能用于 api.siliconflow.cn，"
+                f"阿里百炼的 key 只能用于 dashscope.aliyuncs.com)，"
+                f"且 key 未过期、未充值完。"
+            )
+        
+        # 3) 模型名不存在（常见于换了服务商但没改模型名）
+        if "model_not_found" in lowered or "invalid model" in lowered or "does not exist" in lowered:
+            raise LLMResponseError(
+                f"模型不可用({self.model}): {error_message}\n"
+                f"提示: 模型名必须是该服务商模型列表中存在的完整名称，"
+                f"例如硅基流动写作 Qwen/Qwen3-30B-A3B-Instruct-2507。"
+            )
+        
+        # 4) 其余常规错误
+        if "timeout" in lowered or "timed out" in lowered:
             raise LLMTimeoutError(f"请求超时: {error_message}")
-        elif "auth" in error_message.lower() or "key" in error_message.lower():
-            raise LLMAuthenticationError(f"认证失败: {error_message}")
-        elif "rate" in error_message.lower():
+        elif "rate" in lowered or "429" in lowered:
             raise LLMRateLimitError(f"速率限制: {error_message}")
+        elif "auth" in lowered or "key" in lowered:
+            raise LLMAuthenticationError(f"认证失败: {error_message}")
         else:
             raise LLMConnectionError(f"请求失败({error_type}): {error_message}")

@@ -8,7 +8,7 @@ db_host = "localhost"
 db_port = 3306
 db_name = "ecs"
 db_user_name = "root"
-db_password = "123321"
+db_password = "root"
 url = f"mysql+pymysql://{db_user_name}:{db_password}@{db_host}:{db_port}/{db_name}?charset=utf8"
 
 # 配置会话工厂
